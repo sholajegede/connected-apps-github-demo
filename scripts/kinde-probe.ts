@@ -33,6 +33,7 @@ import {
 } from "../src/lib/kinde/connected-apps";
 import { getManagementToken } from "../src/lib/kinde/management";
 import { describeToken } from "../src/lib/kinde/token-shape";
+import { actingUserFrom } from "../src/lib/github/acting-user";
 
 loadEnv({ path: [".env.local", ".env"], quiet: true });
 
@@ -144,14 +145,21 @@ async function github(): Promise<void> {
     },
   });
 
-  const user = (await response.json()) as { login?: string; id?: number };
+  // `GET /user` needs no scope. The acting login is read out of the response
+  // body, so the connection never has to hold an identity scope.
+  const actor = actingUserFrom(await response.json());
   console.log(`GET /user      HTTP ${response.status}`);
-  console.log(`acting as      ${user.login ?? "(unknown)"} (id ${user.id ?? "?"})`);
+  console.log(
+    `acting as      ${actor ? `${actor.login} (id ${actor.id ?? "?"})` : "(no identity in the response)"}`,
+  );
   console.log(
     `granted scopes ${response.headers.get("x-oauth-scopes") ?? "(none reported)"}`,
   );
   console.log(
     `accepted scopes ${response.headers.get("x-accepted-oauth-scopes") ?? "(none reported)"}`,
+  );
+  console.log(
+    "\nThe granted scopes line above is the connection's real privilege.\nIt should read `public_repo` and nothing more.",
   );
   // The token goes out of scope here. Nothing wrote it anywhere.
 }

@@ -40,11 +40,15 @@ export interface ActionDefinition<
 
 /**
  * Least privilege for this demo: the target repository is public, so
- * `public_repo` is enough to read issues, comment and open a pull request.
- * `read:user` only resolves who the acting user is, for the audit trail.
+ * `public_repo` alone is enough to read issues, comment and open a pull
+ * request. It is the only scope the connection grants.
+ *
+ * Nothing here asks for an identity scope. The acting GitHub login is read
+ * out of the response to a call the action already makes — see
+ * `src/lib/github/acting-user.ts` — so the audit trail records who acted
+ * without the connection holding any extra permission.
  */
-const READ_SCOPES = ["public_repo", "read:user"] as const;
-const WRITE_SCOPES = ["public_repo", "read:user"] as const;
+const REQUIRED_SCOPES = ["public_repo"] as const;
 
 const issueNumber = z
   .number()
@@ -59,7 +63,7 @@ const readIssues = {
     "List open issues in the target repository. Reads only; changes nothing.",
   effect: "read",
   actsAsUser: false,
-  requiredScopes: READ_SCOPES,
+  requiredScopes: REQUIRED_SCOPES,
   input: z.object({
     state: z
       .enum(["open", "closed", "all"])
@@ -82,7 +86,7 @@ const readIssue = {
     "Read the title, body and state of one issue. Reads only; changes nothing.",
   effect: "read",
   actsAsUser: false,
-  requiredScopes: READ_SCOPES,
+  requiredScopes: REQUIRED_SCOPES,
   input: z.object({ issueNumber }),
 } as const satisfies ActionDefinition;
 
@@ -93,7 +97,7 @@ const commentIssue = {
     "Post a comment on an issue. The comment appears in the user's own GitHub account, under their name.",
   effect: "write",
   actsAsUser: true,
-  requiredScopes: WRITE_SCOPES,
+  requiredScopes: REQUIRED_SCOPES,
   input: z.object({
     issueNumber,
     body: z
@@ -111,7 +115,7 @@ const openPr = {
     "Open a pull request from an existing branch. The pull request appears in the user's own GitHub account, under their name.",
   effect: "write",
   actsAsUser: true,
-  requiredScopes: WRITE_SCOPES,
+  requiredScopes: REQUIRED_SCOPES,
   input: z.object({
     title: z.string().min(1).max(256).describe("The pull request title."),
     body: z

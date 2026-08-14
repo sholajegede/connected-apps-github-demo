@@ -49,7 +49,7 @@ describe("connections", () => {
       userId,
       kindeConnectionId: "conn_github",
       githubLogin: "octo-person",
-      grantedScopes: ["public_repo", "read:user"],
+      grantedScopes: ["public_repo"],
     });
 
     let connection = await t.query(api.connections.getForUser, { userId });

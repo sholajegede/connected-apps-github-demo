@@ -47,6 +47,23 @@ describe("action registry", () => {
     }
   });
 
+  it("asks for public_repo and nothing else", () => {
+    // The Kinde connected app grants only public_repo, so the registry must
+    // not claim a scope the connection cannot hold.
+    for (const action of listActions()) {
+      expect([...action.requiredScopes]).toEqual(["public_repo"]);
+    }
+  });
+
+  it("asks for no identity scope", () => {
+    // The acting login is read out of the API response, not granted.
+    for (const action of listActions()) {
+      for (const scope of action.requiredScopes) {
+        expect(scope).not.toMatch(/^(read:)?user/);
+      }
+    }
+  });
+
   it("refuses an action that is not registered", () => {
     expect(() => getAction("delete_repo")).toThrow(/not in the registry/i);
     expect(() => getAction("read_issues ")).toThrow(/not in the registry/i);
