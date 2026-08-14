@@ -58,3 +58,6 @@ AGENTS.md
 
 # the app-held token exists only in stored-key deployments
 .env.stored-key
+
+# queued audit rows awaiting replay into the store
+.audit-fallback.jsonl
