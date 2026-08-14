@@ -11,8 +11,7 @@
  *   npm run broker -- audit <correlationId>
  */
 
-import { config as loadEnv } from "dotenv";
-loadEnv({ path: [".env.local", ".env"], quiet: true });
+import "./load-env";
 
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";

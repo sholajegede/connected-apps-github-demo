@@ -55,3 +55,6 @@ AGENTS.md
 # local connected app session scratch — never commit
 .kinde-session.json
 *.tsbuildinfo
+
+# the app-held token exists only in stored-key deployments
+.env.stored-key

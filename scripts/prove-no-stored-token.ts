@@ -21,8 +21,7 @@
  * Usage: npm run prove -- <kindeUserId>
  */
 
-import { config as loadEnv } from "dotenv";
-loadEnv({ path: [".env.local", ".env"], quiet: true });
+import "./load-env";
 
 import { api } from "../convex/_generated/api";
 import { brokerAction } from "../src/lib/broker/index";
