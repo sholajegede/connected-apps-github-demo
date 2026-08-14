@@ -53,6 +53,8 @@ export interface AgentRunResult {
     actionId: string;
     outcome: BrokerOutcome["status"];
     detail: string;
+    /** The action's structured result, for callers that verify the effect. */
+    data?: unknown;
   }[];
 }
 
@@ -188,6 +190,7 @@ export async function runAgent(
             actionId,
             outcome: "ok",
             detail: outcome.summary,
+            data: outcome.data,
           });
         } else {
           toolReply = JSON.stringify({
