@@ -32,33 +32,7 @@ import { convexServerClient, convexServerSecret } from "../src/lib/convex-server
 import { newCorrelationId } from "../src/lib/correlation";
 import { storageMode } from "../src/lib/env";
 import { CONNECTED_APP } from "../src/lib/storage-mode";
-
-/**
- * Anything shaped like a GitHub credential. Deliberately broad: it matches
- * every GitHub token prefix, not only the one this demo expects.
- */
-const CREDENTIAL_PATTERNS: { name: string; pattern: RegExp }[] = [
-  { name: "GitHub OAuth token (gho_)", pattern: /gho_[A-Za-z0-9]{16,}/ },
-  { name: "GitHub PAT, classic (ghp_)", pattern: /ghp_[A-Za-z0-9]{16,}/ },
-  { name: "GitHub user-to-server (ghu_)", pattern: /ghu_[A-Za-z0-9]{16,}/ },
-  { name: "GitHub server-to-server (ghs_)", pattern: /ghs_[A-Za-z0-9]{16,}/ },
-  { name: "GitHub refresh token (ghr_)", pattern: /ghr_[A-Za-z0-9]{16,}/ },
-  {
-    name: "GitHub fine-grained PAT",
-    pattern: /github_pat_[A-Za-z0-9_]{20,}/,
-  },
-];
-
-interface Finding {
-  where: string;
-  what: string;
-}
-
-function scan(where: string, text: string, into: Finding[]): void {
-  for (const { name, pattern } of CREDENTIAL_PATTERNS) {
-    if (pattern.test(text)) into.push({ where, what: name });
-  }
-}
+import { scan, type Finding } from "./credential-scan";
 
 function heading(text: string): void {
   console.log(`\n${text}\n${"-".repeat(text.length)}`);
