@@ -13,7 +13,8 @@
     "probe": "tsx --tsconfig tsconfig.scripts.json scripts/kinde-probe.ts",
     "broker": "tsx --tsconfig tsconfig.scripts.json scripts/broker.ts",
     "prove": "tsx --tsconfig tsconfig.scripts.json scripts/prove-no-stored-token.ts",
-    "agent": "tsx --tsconfig tsconfig.scripts.json scripts/agent.ts"
+    "agent": "tsx --tsconfig tsconfig.scripts.json scripts/agent.ts",
+    "narrative": "tsx --tsconfig tsconfig.scripts.json scripts/e2e-narrative.ts"
   },
   "dependencies": {
     "@kinde-oss/kinde-auth-nextjs": "^2.13.1",
