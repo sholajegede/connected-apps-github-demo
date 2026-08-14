@@ -93,7 +93,7 @@ const kindeManagementSchema = z.object({
   KINDE_M2M_CLIENT_ID: nonEmpty,
   KINDE_M2M_CLIENT_SECRET: nonEmpty,
   KINDE_MANAGEMENT_AUDIENCE: nonEmpty,
-  KINDE_GITHUB_CONNECTION_ID: nonEmpty,
+  KINDE_GITHUB_CONNECTED_APP_KEY: nonEmpty,
 });
 
 export function kindeManagementEnv() {
@@ -102,7 +102,7 @@ export function kindeManagementEnv() {
     KINDE_M2M_CLIENT_ID: process.env.KINDE_M2M_CLIENT_ID,
     KINDE_M2M_CLIENT_SECRET: process.env.KINDE_M2M_CLIENT_SECRET,
     KINDE_MANAGEMENT_AUDIENCE: process.env.KINDE_MANAGEMENT_AUDIENCE,
-    KINDE_GITHUB_CONNECTION_ID: process.env.KINDE_GITHUB_CONNECTION_ID,
+    KINDE_GITHUB_CONNECTED_APP_KEY: process.env.KINDE_GITHUB_CONNECTED_APP_KEY,
   });
 }
 
