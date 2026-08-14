@@ -1,8 +1,9 @@
 import OpenAI from "openai";
 import type {
-  ChatCompletionMessageParam,
-  ChatCompletionTool,
-} from "openai/resources/chat/completions";
+  ResponseInput,
+  ResponseInputItem,
+  Tool,
+} from "openai/resources/responses/responses";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { brokerAction, type BrokerOutcome } from "@/lib/broker";
@@ -96,8 +97,11 @@ export async function runAgent(
 
   await emit("run.started", request.goal, { model, storageMode: mode });
 
-  const tools = agentTools() as unknown as ChatCompletionTool[];
-  const messages: ChatCompletionMessageParam[] = [
+  // The Responses API is used rather than chat completions because this model
+  // family rejects function tools there unless reasoning is switched off
+  // entirely. Here the agent keeps its reasoning and its tools.
+  const tools = agentTools() as unknown as Tool[];
+  const conversation: ResponseInput = [
     { role: "system", content: SYSTEM_PROMPT },
     { role: "user", content: request.goal },
   ];
@@ -108,37 +112,39 @@ export async function runAgent(
 
   try {
     for (let turn = 0; turn < MAX_TURNS; turn++) {
-      const completion = await openai.chat.completions.create({
+      const response = await openai.responses.create({
         model,
-        messages,
+        input: conversation,
         tools,
       });
 
-      const choice = completion.choices[0];
-      const message = choice.message;
-      messages.push(message);
+      // Echo every output item back so the next turn keeps the full thread,
+      // including the model's own reasoning items.
+      conversation.push(...(response.output as ResponseInputItem[]));
 
-      if (message.content) {
-        await emit("agent.said", message.content);
+      const said = response.output_text?.trim();
+      if (said) {
+        await emit("agent.said", said);
       }
 
-      const requested = message.tool_calls ?? [];
+      const requested = response.output.filter(
+        (item): item is Extract<typeof item, { type: "function_call" }> =>
+          item.type === "function_call",
+      );
+
       if (requested.length === 0) {
-        finalMessage = message.content ?? "";
+        finalMessage = said ?? "";
         break;
       }
 
       let halt = false;
 
       for (const toolCall of requested) {
-        if (toolCall.type !== "function") continue;
-        const actionId = toolCall.function.name;
+        const actionId = toolCall.name;
 
         let input: unknown = {};
         try {
-          input = toolCall.function.arguments
-            ? JSON.parse(toolCall.function.arguments)
-            : {};
+          input = toolCall.arguments ? JSON.parse(toolCall.arguments) : {};
         } catch {
           input = {};
         }
@@ -205,10 +211,10 @@ export async function runAgent(
           }
         }
 
-        messages.push({
-          role: "tool",
-          tool_call_id: toolCall.id,
-          content: toolReply,
+        conversation.push({
+          type: "function_call_output",
+          call_id: toolCall.call_id,
+          output: toolReply,
         });
       }
 

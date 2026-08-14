@@ -4,14 +4,14 @@ import { ACTION_IDS, getAction } from "@/lib/actions/registry";
 
 describe("agent tools", () => {
   it("exposes exactly the registered actions and nothing more", () => {
-    const names = agentTools().map((tool) => tool.function.name);
+    const names = agentTools().map((tool) => tool.name);
     expect(names).toEqual([...ACTION_IDS]);
   });
 
   it("tells the model which tools write into the user's account", () => {
     for (const tool of agentTools()) {
-      const action = getAction(tool.function.name);
-      const description = tool.function.description;
+      const action = getAction(tool.name);
+      const description = tool.description;
       if (action.effect === "write") {
         expect(description).toMatch(/writes into the signed-in user's own/i);
       } else {
@@ -22,7 +22,7 @@ describe("agent tools", () => {
 
   it("marks defaulted fields optional and the rest required", () => {
     const byName = Object.fromEntries(
-      agentTools().map((tool) => [tool.function.name, tool.function.parameters]),
+      agentTools().map((tool) => [tool.name, tool.parameters]),
     );
 
     // read_issues has defaults for both fields, so nothing is required.
@@ -40,8 +40,8 @@ describe("agent tools", () => {
 
   it("converts integers, enums and descriptions", () => {
     const readIssues = agentTools().find(
-      (tool) => tool.function.name === "read_issues",
-    )!.function.parameters;
+      (tool) => tool.name === "read_issues",
+    )!.parameters;
 
     expect(readIssues.type).toBe("object");
     expect(readIssues.additionalProperties).toBe(false);

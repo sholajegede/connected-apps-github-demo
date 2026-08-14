@@ -88,13 +88,21 @@ export function toJsonSchema(schema: z.ZodTypeAny): JsonSchema {
   return out;
 }
 
+/**
+ * A tool in the shape the Responses API expects: flat, not nested under a
+ * `function` key.
+ */
 export interface AgentTool {
   type: "function";
-  function: {
-    name: string;
-    description: string;
-    parameters: JsonSchema;
-  };
+  name: string;
+  description: string;
+  parameters: JsonSchema;
+  /**
+   * Strict mode requires every property to be required. Several actions have
+   * defaulted fields that the registry fills in, so strict is off and the
+   * registry remains the thing that validates input.
+   */
+  strict: false;
 }
 
 function describe(action: ActionDefinition): string {
@@ -109,10 +117,9 @@ function describe(action: ActionDefinition): string {
 export function agentTools(): AgentTool[] {
   return listActions().map((action) => ({
     type: "function",
-    function: {
-      name: action.id,
-      description: describe(action),
-      parameters: toJsonSchema(action.input),
-    },
+    name: action.id,
+    description: describe(action),
+    parameters: toJsonSchema(action.input),
+    strict: false,
   }));
 }
