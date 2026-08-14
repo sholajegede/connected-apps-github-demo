@@ -36,6 +36,12 @@ export interface AgentRunRequest {
   userId: Id<"users">;
   goal: string;
   correlationId?: string;
+  /**
+   * An existing run to continue writing into. The console creates the run
+   * first so it can hand the browser a runId to subscribe to, then lets the
+   * agent stream into it.
+   */
+  runId?: Id<"runs">;
 }
 
 export interface AgentRunResult {
@@ -76,14 +82,16 @@ export async function runAgent(
   const secret = convexServerSecret();
   const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
-  const runId = await convex.mutation(api.gateway.startRun, {
-    secret,
-    userId: request.userId,
-    correlationId,
-    goal: request.goal,
-    storageMode: mode,
-    model,
-  });
+  const runId =
+    request.runId ??
+    (await convex.mutation(api.gateway.startRun, {
+      secret,
+      userId: request.userId,
+      correlationId,
+      goal: request.goal,
+      storageMode: mode,
+      model,
+    }));
 
   const emit = async (type: string, message: string, data?: unknown) => {
     await convex.mutation(api.gateway.appendRunEvent, {
