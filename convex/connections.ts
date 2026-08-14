@@ -15,6 +15,7 @@ export const markLinked = internalMutation({
   args: {
     userId: v.id("users"),
     kindeConnectionId: v.string(),
+    kindeSessionId: v.optional(v.string()),
     githubLogin: v.optional(v.string()),
     grantedScopes: v.optional(v.array(v.string())),
   },
@@ -31,6 +32,7 @@ export const markLinked = internalMutation({
     if (existing) {
       await ctx.db.patch(existing._id, {
         kindeConnectionId: args.kindeConnectionId,
+        kindeSessionId: args.kindeSessionId ?? existing.kindeSessionId,
         status: "linked",
         githubLogin: args.githubLogin ?? existing.githubLogin,
         grantedScopes: args.grantedScopes ?? existing.grantedScopes,
@@ -44,6 +46,7 @@ export const markLinked = internalMutation({
       userId: args.userId,
       provider: "github",
       kindeConnectionId: args.kindeConnectionId,
+      kindeSessionId: args.kindeSessionId,
       status: "linked",
       githubLogin: args.githubLogin,
       grantedScopes: args.grantedScopes,

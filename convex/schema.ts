@@ -71,6 +71,17 @@ export default defineSchema({
     userId: v.id("users"),
     provider: v.literal("github"),
     kindeConnectionId: v.string(),
+    /**
+     * The Kinde connected app session handle. This is the id the broker gives
+     * to `connected_apps/token` to ask Kinde for a token.
+     *
+     * It is deliberately NOT a GitHub credential. It carries no access to
+     * GitHub on its own — it is useless without the Kinde M2M credentials,
+     * and Kinde stops honouring it the instant the connection is revoked
+     * (measured: the next fetch fails at +0ms). Kinde's model requires the
+     * app to keep this handle; keeping it is what lets the app hold no token.
+     */
+    kindeSessionId: v.optional(v.string()),
     status: connectionStatus,
     /** The GitHub login observed the last time a token was brokered. */
     githubLogin: v.optional(v.string()),

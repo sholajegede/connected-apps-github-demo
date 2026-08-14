@@ -11,6 +11,7 @@
 import type * as audit from "../audit.js";
 import type * as catalog from "../catalog.js";
 import type * as connections from "../connections.js";
+import type * as gateway from "../gateway.js";
 import type * as runs from "../runs.js";
 import type * as users from "../users.js";
 
@@ -24,6 +25,7 @@ declare const fullApi: ApiFromModules<{
   audit: typeof audit;
   catalog: typeof catalog;
   connections: typeof connections;
+  gateway: typeof gateway;
   runs: typeof runs;
   users: typeof users;
 }>;
