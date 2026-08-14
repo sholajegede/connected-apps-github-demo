@@ -5,5 +5,5 @@
     "moduleResolution": "bundler",
     "jsx": "react-jsx"
   },
-  "include": ["scripts/**/*.ts", "src/**/*.ts"]
+  "include": ["scripts/**/*.ts", "src/**/*.ts", "convex/**/*.ts"]
 }

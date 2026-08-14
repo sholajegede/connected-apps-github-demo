@@ -10,7 +10,9 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "probe": "tsx --tsconfig tsconfig.scripts.json scripts/kinde-probe.ts"
+    "probe": "tsx --tsconfig tsconfig.scripts.json scripts/kinde-probe.ts",
+    "broker": "tsx --tsconfig tsconfig.scripts.json scripts/broker.ts",
+    "prove": "tsx --tsconfig tsconfig.scripts.json scripts/prove-no-stored-token.ts"
   },
   "dependencies": {
     "convex": "^1.17.0",
