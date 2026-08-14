@@ -1,0 +1,53 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next.js
+.next/
+out/
+build/
+next-env.d.ts
+
+# convex
+.convex/
+
+# testing
+coverage/
+
+# env / secrets — never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# local token & session material — never commit
+.tokens/
+.sessions/
+*.token
+*.session
+token.json
+session.json
+
+# internal working notes — never commit
+BUILD_PLAN.md
+BUILD_LOG.md
+CLAUDE.md
+
+# editors / os
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# local agent settings
+.claude/
+tsconfig.tsbuildinfo
+AGENTS.md
