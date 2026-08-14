@@ -41,6 +41,17 @@ export interface BrokerRequest {
   runId?: Id<"runs">;
 }
 
+/**
+ * Why the broker refused.
+ *
+ * The distinction is load-bearing for callers. `credential` means there is no
+ * token and there will not be one — the connection is revoked or Kinde is
+ * refusing. Retrying is pointless and a caller must stop rather than loop.
+ * `input` and `unknown-action` are the caller's own mistake and can be
+ * corrected.
+ */
+export type RefusalKind = "credential" | "input" | "unknown-action" | "no-user";
+
 export type BrokerOutcome =
   | {
       status: "ok";
@@ -56,6 +67,7 @@ export type BrokerOutcome =
       actionId: string;
       storageMode: string;
       reason: string;
+      refusal: RefusalKind;
     }
   | {
       status: "failed";
@@ -118,6 +130,7 @@ export async function brokerAction(
       actionId: request.actionId,
       storageMode: mode,
       reason,
+      refusal: /not in the registry/i.test(reason) ? "unknown-action" : "input",
     };
   }
 
@@ -131,7 +144,13 @@ export async function brokerAction(
   if (!user) {
     const reason = `No such user: ${request.kindeUserId}. Refusing to act.`;
     await audit("action.refused", "refused", reason);
-    return { status: "refused", actionId: action.id, storageMode: mode, reason };
+    return {
+      status: "refused",
+      actionId: action.id,
+      storageMode: mode,
+      reason,
+      refusal: "no-user",
+    };
   }
 
   // 3. Get a credential. This is the only place either mode obtains one.
@@ -154,6 +173,8 @@ export async function brokerAction(
       actionId: action.id,
       storageMode: mode,
       reason: credential.reason,
+      // No token now and none coming. Callers must stop, not retry.
+      refusal: "credential",
     };
   }
 
