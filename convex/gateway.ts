@@ -232,6 +232,57 @@ export const finishRun = mutation({
   },
 });
 
+/* --------------------------------------------------------------- reset -- */
+
+/**
+ * Clear one user's history so a narrative run can start from zero.
+ *
+ * Runs, timeline events and audit rows go. The user and the connection stay,
+ * because the narrative needs the connection it was given. This exists for the
+ * end-to-end script; the application never calls it.
+ */
+export const resetUserHistory = mutation({
+  args: { secret, userId: v.id("users") },
+  returns: v.object({
+    runs: v.number(),
+    runEvents: v.number(),
+    auditLog: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    assertServer(args.secret);
+
+    const runs = await ctx.db
+      .query("runs")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    let removedEvents = 0;
+    for (const run of runs) {
+      const events = await ctx.db
+        .query("runEvents")
+        .withIndex("by_run", (q) => q.eq("runId", run._id))
+        .collect();
+      for (const event of events) {
+        await ctx.db.delete(event._id);
+        removedEvents += 1;
+      }
+      await ctx.db.delete(run._id);
+    }
+
+    const rows = await ctx.db
+      .query("auditLog")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    for (const row of rows) await ctx.db.delete(row._id);
+
+    return {
+      runs: runs.length,
+      runEvents: removedEvents,
+      auditLog: rows.length,
+    };
+  },
+});
+
 /* ----------------------------------------------------------- inspection -- */
 
 /**
