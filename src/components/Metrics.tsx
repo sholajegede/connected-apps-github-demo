@@ -21,6 +21,7 @@ export function Metrics({
   connectedApp: boolean;
 }) {
   const metrics = useQuery(api.metrics.forUser, { userId });
+  const loading = metrics === undefined;
 
   const brokered = metrics?.actionsBrokered ?? 0;
   const invoked = metrics?.actionsInvoked ?? 0;
@@ -30,38 +31,38 @@ export function Metrics({
 
   // After a revocation, connected-app must be zero. stored-key will not be,
   // and that is the number worth staring at.
-  const afterTone = revoked === 0 ? "" : after === 0 ? "good" : "bad";
+  const afterTone = loading || revoked === 0 ? "" : after === 0 ? "good" : "bad";
 
   return (
     <div className="metrics">
       <div className="metric">
-        <div className="value">{brokered}</div>
-        <div className="label">tokens brokered, one per action</div>
+        <div className="value">{loading ? "—" : brokered}</div>
+        <div className="label">tokens supplied, one for each action</div>
       </div>
 
       <div className={`metric ${tokensStored === 0 ? "good" : "bad"}`}>
         <div className="value">{tokensStored}</div>
-        <div className="label">GitHub tokens the app stores</div>
+        <div className="label">GitHub tokens that the app keeps</div>
       </div>
 
       <div className="metric">
-        <div className="value">{invoked}</div>
-        <div className="label">actions completed on GitHub</div>
+        <div className="value">{loading ? "—" : invoked}</div>
+        <div className="label">actions done on GitHub</div>
       </div>
 
       <div className="metric">
-        <div className="value">{refused}</div>
+        <div className="value">{loading ? "—" : refused}</div>
         <div className="label">actions refused</div>
       </div>
 
       <div className={`metric ${afterTone}`}>
-        <div className="value">{revoked === 0 ? "—" : after}</div>
+        <div className="value">{loading || revoked === 0 ? "—" : after}</div>
         <div className="label">
           {revoked === 0
-            ? "actions after revocation (none yet)"
+            ? "actions after revocation — none yet"
             : connectedApp
               ? "actions after revocation"
-              : "actions after revocation — still acting"}
+              : "actions after revocation — the agent continues"}
         </div>
       </div>
     </div>

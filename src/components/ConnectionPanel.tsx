@@ -85,12 +85,12 @@ export function ConnectionPanel({
       <p className="muted small" style={{ margin: "0.75rem 0 0" }}>
         {status === "linked" ? (
           <>
-            Kinde holds the authorization. This app stores no GitHub token — it
-            asks for one per action and drops it.{" "}
+            Kinde keeps the authorization. This app keeps no GitHub token. It
+            asks for a token for each action, then discards it.{" "}
             {brokerCount > 0 ? (
               <>
-                {brokerCount} token{brokerCount === 1 ? "" : "s"} brokered so
-                far
+                Kinde supplied {brokerCount} token
+                {brokerCount === 1 ? "" : "s"} up to now
                 {lastBrokeredAt
                   ? `, last at ${new Date(lastBrokeredAt).toLocaleTimeString()}`
                   : ""}
@@ -101,24 +101,24 @@ export function ConnectionPanel({
         ) : status === "revoked" ? (
           connectedApp ? (
             <>
-              Revoked. Kinde will broker no further token, so the next action is
-              refused. You are still signed in to this app.
+              Revoked. Kinde supplies no more tokens, so the next action
+              stops. You stay signed in to this app.
             </>
           ) : (
             <>
-              Revoked at Kinde — but this deployment holds its own GitHub token,
-              so the agent can still act. That is the hole.
+              Revoked at Kinde. But this deployment keeps its own GitHub
+              token, so the agent continues to act. This is the problem.
             </>
           )
         ) : (
-          <>Connect GitHub to let the agent act in your account.</>
+          <>Connect GitHub. Then the agent can act in your account.</>
         )}
       </p>
 
       {status === "revoked" ? (
         <p className="muted small" style={{ margin: "0.5rem 0 0" }}>
-          Revocation stops Kinde brokering or refreshing tokens. It does not
-          reach into GitHub to kill a token already issued.
+          Revocation stops Kinde immediately. It does not cancel a token that
+          GitHub already issued. That token stays valid until it expires.
         </p>
       ) : null}
     </div>

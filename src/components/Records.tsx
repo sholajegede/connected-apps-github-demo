@@ -14,12 +14,19 @@ export function Records({ userId }: { userId: Id<"users"> }) {
   const rows = useQuery(api.metrics.auditForUser, { userId, limit: 40 });
 
   if (rows === undefined) {
-    return <p className="muted small">Loading…</p>;
+    return (
+      <div aria-busy="true" aria-label="Records load now">
+        {[0, 1, 2, 3].map((row) => (
+          <div key={row} className="skeleton" style={{ width: `${92 - row * 9}%` }} />
+        ))}
+      </div>
+    );
   }
   if (rows.length === 0) {
     return (
-      <p className="muted small">
-        Nothing yet. Connect GitHub and run a task.
+      <p className="empty">
+        No records yet. Connect GitHub, then give the agent a task. Each
+        decision that the broker makes shows here.
       </p>
     );
   }

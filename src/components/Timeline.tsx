@@ -39,14 +39,24 @@ export function Timeline({ runId }: { runId: Id<"runs"> | null }) {
 
   if (!runId) {
     return (
-      <p className="muted small">
-        Give the agent a task. Each step appears here as it happens.
+      <p className="empty">
+        No run yet. Give the agent a task. Each step shows here while it
+        happens.
       </p>
     );
   }
 
   if (events === undefined) {
-    return <p className="muted small">Waiting for the first step…</p>;
+    return (
+      <div aria-busy="true" aria-label="The run starts now">
+        <div className="skeleton" style={{ width: "70%" }} />
+        <div className="skeleton" style={{ width: "52%" }} />
+      </div>
+    );
+  }
+
+  if (events.length === 0) {
+    return <p className="empty">The run starts. Wait for the first step.</p>;
   }
 
   return (

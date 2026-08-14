@@ -56,8 +56,8 @@ export function TaskRunner({
 
         {willBeRefused ? (
           <div className="notice notice-warn">
-            GitHub is not connected, so the broker has no token to fetch. A run
-            will be refused. Connect GitHub above first.
+            GitHub is not connected. The broker can get no token, so a run
+            will stop. Connect GitHub first.
           </div>
         ) : null}
 
@@ -77,14 +77,14 @@ export function TaskRunner({
           <div className="row" style={{ marginTop: "0.6rem" }}>
             <SubmitButton disabled={goal.trim().length === 0} />
             <span className="muted small">
-              Every tool call goes through the broker.
+              Each tool call goes through the broker.
             </span>
           </div>
         </form>
 
         <div style={{ marginTop: "0.85rem" }}>
           <div className="muted small" style={{ marginBottom: "0.35rem" }}>
-            Or start from one of these:
+            Or start with one of these:
           </div>
           <div className="row">
             {EXAMPLES.map((example) => (

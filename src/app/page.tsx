@@ -15,9 +15,9 @@ export default async function HomePage() {
     <main className="wrap" style={{ maxWidth: "40rem", paddingTop: "5rem" }}>
       <h1>Connected Apps GitHub Demo</h1>
       <p className="muted" style={{ marginTop: "0.4rem" }}>
-        An agent acts in your GitHub account through one token broker. Sign in,
-        connect GitHub, give the agent a task, then cut it off and watch what
-        happens.
+        An agent does work in your GitHub account through one token broker.
+        Sign in, connect GitHub, and give the agent a task. Then revoke the
+        connection and see the result.
       </p>
 
       <div className="panel" style={{ marginTop: "1.5rem" }}>
@@ -41,13 +41,13 @@ export default async function HomePage() {
           </span>
           <span className="muted small">
             {mode === "connected-app"
-              ? "The app stores no GitHub token. It asks Kinde for one per action and drops it."
-              : "The app holds its own long-lived GitHub token. Revoking the connection will not stop it."}
+              ? "This app keeps no GitHub token. It asks Kinde for a token for each action, then discards it."
+              : "This app keeps its own long-life GitHub token. Revocation does not stop it."}
           </span>
         </div>
         <p className="muted small" style={{ margin: "0.75rem 0 0" }}>
-          The mode is set by the deployment environment. Nothing in this
-          interface can change it.
+          The deployment sets the mode. Nothing in this interface can change
+          it.
         </p>
       </div>
     </main>
