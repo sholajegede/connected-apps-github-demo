@@ -54,3 +54,4 @@ AGENTS.md
 
 # local connected app session scratch — never commit
 .kinde-session.json
+*.tsbuildinfo
