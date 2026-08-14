@@ -298,6 +298,79 @@ async function revokeUserSessions(kindeUserId: string): Promise<void> {
   );
 }
 
+/* --------------------------------------------- survival of a held token -- */
+
+/**
+ * The question Phase 5 turns on: once Kinde has revoked the session, does a
+ * token that was ALREADY handed out keep working at GitHub?
+ *
+ * If it does, revocation only stops the next fetch — and the cutoff is
+ * instant purely because the broker holds nothing between actions. That is
+ * the architectural claim, and it deserves a measurement rather than a
+ * flourish.
+ *
+ * This is the one place the probe holds a token across a step. It is a
+ * deliberate experiment in a throwaway script, never the app's behaviour.
+ */
+async function heldTokenAfterRevoke(): Promise<void> {
+  const session = loadSession();
+
+  heading("Step 1 — broker a token and hold it");
+  const fetched = await fetchConnectedAppToken(session.sessionId);
+  if (!fetched.ok) {
+    console.log(`REFUSED HTTP ${fetched.status}: ${fetched.reason}`);
+    console.log("Relink first: npm run probe -- link <kindeUserId>");
+    process.exitCode = 1;
+    return;
+  }
+  const held = fetched.token.accessToken;
+  const shape = describeToken(held);
+  console.log(`held token     ${shape.kind} fingerprint ${shape.fingerprint}`);
+
+  const callGitHub = async () => {
+    const response = await fetch("https://api.github.com/user", {
+      headers: {
+        authorization: `Bearer ${held}`,
+        accept: "application/vnd.github+json",
+        "user-agent": "connected-apps-github-demo-probe",
+      },
+    });
+    return response.status;
+  };
+
+  heading("Step 2 — the held token works before revocation");
+  console.log(`GET /user      HTTP ${await callGitHub()}`);
+
+  heading("Step 3 — revoke the connected app session");
+  const revoke = await revokeConnectedAppSession(session.sessionId);
+  console.log(`HTTP ${revoke.status} in ${revoke.durationMs}ms`);
+
+  heading("Step 4 — can Kinde still broker a token?");
+  const after = await fetchConnectedAppToken(session.sessionId);
+  console.log(
+    after.ok
+      ? "STILL ISSUING — revocation did not take"
+      : `REFUSED HTTP ${after.status}: ${after.reason}`,
+  );
+
+  heading("Step 5 — does the ALREADY-HELD token still work at GitHub?");
+  const startedAt = Date.now();
+  for (let i = 0; i < 6; i++) {
+    const status = await callGitHub();
+    const alive = status === 200;
+    console.log(
+      `  +${String(Date.now() - startedAt).padStart(6)}ms  GET /user HTTP ${status}  ${alive ? "STILL VALID" : "REJECTED"}`,
+    );
+    if (!alive) break;
+    await new Promise((r) => setTimeout(r, 5_000));
+  }
+
+  heading("Reading");
+  console.log(
+    "If the held token stayed valid, revoking at Kinde does NOT reach back into\nGitHub. The cutoff is instant only because the broker fetches per action and\nkeeps nothing. That is the whole argument for the connected-app mode — and it\nis also the honest limit of the kill switch.",
+  );
+}
+
 /* ------------------------------------------------------------------ main -- */
 
 async function main(): Promise<void> {
@@ -316,6 +389,8 @@ async function main(): Promise<void> {
       return await sessions(arg);
     case "revoke-session":
       return await revokeSession();
+    case "held-token-after-revoke":
+      return await heldTokenAfterRevoke();
     case "revoke-user-sessions":
       if (!arg) {
         throw new Error(
@@ -340,6 +415,7 @@ async function main(): Promise<void> {
           "  github                            call GitHub with a brokered token",
           "  sessions <kindeUserId>            list the user's Kinde sessions",
           "  revoke-session                    revoke the connected app session, then measure",
+          "  held-token-after-revoke           does an already-issued token survive revocation?",
           "  revoke-user-sessions <kindeUserId>  delete all user sessions, then measure",
         ].join("\n"),
       );
