@@ -7,6 +7,7 @@ import { gitHubTargetEnv, storageMode } from "@/lib/env";
 import { createGitHubClient } from "@/lib/github/client";
 import { CONNECTED_APP, STORED_KEY } from "@/lib/storage-mode";
 import { writeToFallbackSink } from "./audit-sink";
+import { compareScopes, describeScopes } from "./scopes";
 import {
   acquireConnectedAppToken,
   acquireStoredKeyToken,
@@ -276,7 +277,17 @@ export async function brokerAction(
       });
     }
 
-    await audit("action.invoked", "allowed", result.summary, user._id);
+    // Compare what the credential actually carried against what the registry
+    // claims this action needs. Recorded, not enforced after the fact.
+    const scopes = compareScopes(action.requiredScopes, result.scopes);
+    const scopeNote = describeScopes(scopes);
+
+    await audit(
+      "action.invoked",
+      "allowed",
+      scopeNote ? `${result.summary} ${scopeNote}` : result.summary,
+      user._id,
+    );
 
     return {
       status: "ok",
