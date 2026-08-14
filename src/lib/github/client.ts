@@ -13,6 +13,12 @@
 const GITHUB_API = "https://api.github.com";
 const USER_AGENT = "connected-apps-github-demo";
 
+/**
+ * A hang must not become an action that never finishes. The deadline turns an
+ * unreachable GitHub into a recorded failure.
+ */
+const GITHUB_TIMEOUT_MS = 12_000;
+
 export interface GitHubResult<T = unknown> {
   ok: boolean;
   status: number;
@@ -59,20 +65,33 @@ export function createGitHubClient(token: string): GitHubCall {
       if (value !== undefined) url.searchParams.set(key, String(value));
     }
 
-    const response = await fetch(url, {
-      method: options.method ?? "GET",
-      headers: {
-        authorization: `Bearer ${token}`,
-        accept: "application/vnd.github+json",
-        "x-github-api-version": "2022-11-28",
-        "user-agent": USER_AGENT,
-        ...(options.body === undefined
-          ? {}
-          : { "content-type": "application/json" }),
-      },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      cache: "no-store",
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: options.method ?? "GET",
+        headers: {
+          authorization: `Bearer ${token}`,
+          accept: "application/vnd.github+json",
+          "x-github-api-version": "2022-11-28",
+          "user-agent": USER_AGENT,
+          ...(options.body === undefined
+            ? {}
+            : { "content-type": "application/json" }),
+        },
+        body:
+          options.body === undefined ? undefined : JSON.stringify(options.body),
+        cache: "no-store",
+        signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
+      });
+    } catch (error) {
+      // Unreachable or too slow. The broker records this as a failed action.
+      // It never becomes a silent success.
+      const detail =
+        error instanceof DOMException && error.name === "TimeoutError"
+          ? `GitHub did not answer within ${GITHUB_TIMEOUT_MS}ms.`
+          : `GitHub is unreachable: ${error instanceof Error ? error.message : String(error)}`;
+      throw new GitHubError(detail, 0);
+    }
 
     const text = await response.text();
     let body: unknown = null;
