@@ -12,11 +12,13 @@
     "test": "vitest run",
     "probe": "tsx --tsconfig tsconfig.scripts.json scripts/kinde-probe.ts",
     "broker": "tsx --tsconfig tsconfig.scripts.json scripts/broker.ts",
-    "prove": "tsx --tsconfig tsconfig.scripts.json scripts/prove-no-stored-token.ts"
+    "prove": "tsx --tsconfig tsconfig.scripts.json scripts/prove-no-stored-token.ts",
+    "agent": "tsx --tsconfig tsconfig.scripts.json scripts/agent.ts"
   },
   "dependencies": {
     "convex": "^1.17.0",
     "next": "^16.3.1",
+    "openai": "^7.4.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^3.24.1"
