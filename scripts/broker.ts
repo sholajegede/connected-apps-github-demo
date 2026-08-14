@@ -8,6 +8,7 @@
  * Usage:
  *   npm run broker -- connect <kindeUserId>          link the saved session
  *   npm run broker -- act <kindeUserId> <actionId> '<json>'
+ *   npm run broker -- revoke <kindeUserId>
  *   npm run broker -- audit <correlationId>
  */
 
@@ -17,6 +18,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { api } from "../convex/_generated/api";
 import { brokerAction } from "../src/lib/broker/index";
+import { revokeConnection } from "../src/lib/broker/revoke";
 import { convexServerClient, convexServerSecret } from "../src/lib/convex-server";
 import { newCorrelationId } from "../src/lib/correlation";
 import { listActions } from "../src/lib/actions/registry";
@@ -112,6 +114,42 @@ async function act(
   await showAudit(correlationId);
 }
 
+/**
+ * Revoke the user's GitHub connection.
+ *
+ * Uses `connected_apps/revoke` only. The user-sessions endpoint is not a kill
+ * switch — it reports success and keeps issuing tokens.
+ */
+async function revoke(kindeUserId: string): Promise<void> {
+  const correlationId = newCorrelationId();
+
+  heading("Revoke the GitHub connection");
+  console.log(`storage mode   ${storageMode()}`);
+  console.log(`correlationId  ${correlationId}`);
+
+  const result = await revokeConnection({ kindeUserId, correlationId });
+
+  if (result.status === "revoked") {
+    console.log(`\nHTTP           ${result.httpStatus} in ${result.durationMs}ms`);
+    console.log(
+      `effect         ${
+        result.cutsOffAgent
+          ? "Kinde will broker no further token. The next action is refused."
+          : "NONE on the agent. The app holds its own token, so it keeps acting."
+      }`,
+    );
+    console.log(
+      "\nRevocation stops Kinde brokering or refreshing tokens. It does not\nreach into GitHub to kill a token already issued.",
+    );
+  } else {
+    console.log(`\nstatus         ${result.status}`);
+    console.log(`reason         ${result.reason}`);
+    process.exitCode = 1;
+  }
+
+  await showAudit(correlationId);
+}
+
 async function showAudit(correlationId: string): Promise<void> {
   const convex = convexServerClient();
   const rows = await convex.query(api.audit.byCorrelationId, { correlationId });
@@ -142,6 +180,9 @@ async function main(): Promise<void> {
         );
       }
       return await act(rest[0], rest[1], rest[2]);
+    case "revoke":
+      if (!rest[0]) throw new Error("Usage: npm run broker -- revoke <kindeUserId>");
+      return await revoke(rest[0]);
     case "audit":
       if (!rest[0]) throw new Error("Usage: npm run broker -- audit <correlationId>");
       return await showAudit(rest[0]);
@@ -151,6 +192,7 @@ async function main(): Promise<void> {
           "Commands:",
           "  connect <kindeUserId>                     register user + connection",
           "  act <kindeUserId> <actionId> '<json>'     run one action through the broker",
+          "  revoke <kindeUserId>                      revoke the github connection",
           "  audit <correlationId>                     show the audit rows",
           "",
           `Actions: ${listActions().map((a) => a.id).join(", ")}`,
