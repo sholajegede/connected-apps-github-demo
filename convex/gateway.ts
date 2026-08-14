@@ -174,6 +174,64 @@ export const syncCatalog = mutation({
   },
 });
 
+/* ------------------------------------------------------------ agent runs -- */
+
+export const startRun = mutation({
+  args: {
+    secret,
+    userId: v.id("users"),
+    correlationId: v.string(),
+    goal: v.string(),
+    storageMode: storageMode,
+    model: v.optional(v.string()),
+  },
+  returns: v.id("runs"),
+  handler: async (ctx, args): Promise<Id<"runs">> => {
+    assertServer(args.secret);
+    const { secret: _secret, ...rest } = args;
+    return await ctx.runMutation(internal.runs.start, rest);
+  },
+});
+
+export const appendRunEvent = mutation({
+  args: {
+    secret,
+    runId: v.id("runs"),
+    type: v.string(),
+    message: v.string(),
+    data: v.optional(v.any()),
+  },
+  returns: v.id("runEvents"),
+  handler: async (ctx, args): Promise<Id<"runEvents">> => {
+    assertServer(args.secret);
+    const { secret: _secret, ...rest } = args;
+    return await ctx.runMutation(internal.runs.appendEvent, rest);
+  },
+});
+
+export const finishRun = mutation({
+  args: {
+    secret,
+    runId: v.id("runs"),
+    status: v.union(
+      v.literal("succeeded"),
+      v.literal("failed"),
+      v.literal("refused"),
+    ),
+    error: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    assertServer(args.secret);
+    await ctx.runMutation(internal.runs.finish, {
+      runId: args.runId,
+      status: args.status,
+      error: args.error,
+    });
+    return null;
+  },
+});
+
 /* ----------------------------------------------------------- inspection -- */
 
 /**
