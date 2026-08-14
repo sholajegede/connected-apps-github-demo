@@ -90,6 +90,59 @@ describe("one GitHub caller", () => {
   });
 });
 
+describe("the agent holds nothing", () => {
+  const agentFiles = sourceFiles.filter((file) =>
+    file.path.startsWith("src/lib/agent/"),
+  );
+
+  it("has agent modules to check", () => {
+    expect(agentFiles.length).toBeGreaterThan(0);
+  });
+
+  it("never imports the GitHub client", () => {
+    for (const file of agentFiles) {
+      expect(
+        file.text.includes("@/lib/github/client"),
+        `${file.path} imports the GitHub client`,
+      ).toBe(false);
+    }
+  });
+
+  it("never names the GitHub API host", () => {
+    for (const file of agentFiles) {
+      expect(
+        file.text.includes("api.github.com"),
+        `${file.path} calls GitHub directly`,
+      ).toBe(false);
+    }
+  });
+
+  it("never reads a credential from the environment", () => {
+    for (const file of agentFiles) {
+      expect(
+        /GITHUB_STORED_TOKEN|storedKeyEnv|fetchConnectedAppToken/.test(file.text),
+        `${file.path} reaches for a credential`,
+      ).toBe(false);
+    }
+  });
+
+  it("branches on the storage mode nowhere", () => {
+    // The same agent code must run in both modes. Only the broker differs.
+    for (const file of agentFiles) {
+      expect(
+        /"stored-key"|'stored-key'|STORED_KEY/.test(file.text),
+        `${file.path} branches on the storage mode`,
+      ).toBe(false);
+    }
+  });
+
+  it("reaches GitHub only by calling the broker", () => {
+    const run = agentFiles.find((file) => file.path === "src/lib/agent/run.ts");
+    expect(run).toBeDefined();
+    expect(run!.text).toMatch(/brokerAction\(/);
+  });
+});
+
 describe("no credential leaves the broker", () => {
   it("never returns a token from the broker's outcome type", () => {
     const broker = sourceFiles.find(
