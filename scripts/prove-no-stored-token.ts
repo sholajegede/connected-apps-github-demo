@@ -18,13 +18,16 @@
  *
  * Exit code is non-zero when the mode's expectations are not met.
  *
- * Usage: npm run prove -- <kindeUserId>
+ * Usage:
+ *   npm run prove -- <kindeUserId>           scan around a direct broker call
+ *   npm run prove -- <kindeUserId> agent     scan around a full agent run
  */
 
 import "./load-env";
 
 import { api } from "../convex/_generated/api";
 import { brokerAction } from "../src/lib/broker/index";
+import { runAgent } from "../src/lib/agent/run";
 import { convexServerClient, convexServerSecret } from "../src/lib/convex-server";
 import { newCorrelationId } from "../src/lib/correlation";
 import { storageMode } from "../src/lib/env";
@@ -96,7 +99,7 @@ async function captureOutput<T>(
 async function main(): Promise<void> {
   const kindeUserId = process.argv[2];
   if (!kindeUserId) {
-    throw new Error("Usage: npm run prove -- <kindeUserId>");
+    throw new Error("Usage: npm run prove -- <kindeUserId> [agent]");
   }
 
   const mode = storageMode();
@@ -106,28 +109,75 @@ async function main(): Promise<void> {
   console.log(`storage mode   ${mode}`);
   console.log(`correlationId  ${correlationId}`);
 
-  // 1. Run a real action through the broker, capturing everything it prints.
-  heading("Step 1 — run a real action through the broker");
-  const { result: outcome, output } = await captureOutput(() =>
-    brokerAction({
-      actionId: "read_issues",
-      input: { state: "open", limit: 3 },
-      kindeUserId,
-      correlationId,
-    }),
+  // 1. Do real work, capturing everything printed while it happens.
+  //
+  //    `agent` runs the full OpenAI loop, so the scan covers the agent path
+  //    end to end: the model, its tool calls, the broker beneath them and
+  //    everything they wrote. `broker` exercises the broker alone.
+  const viaAgent = process.argv[3] === "agent";
+
+  heading(
+    viaAgent
+      ? "Step 1 — run a real agent task through the broker"
+      : "Step 1 — run a real action through the broker",
   );
 
-  console.log(`outcome        ${outcome.status}`);
-  if (outcome.status === "ok") {
-    console.log(`summary        ${outcome.summary}`);
-    console.log(`scopes         ${outcome.scopes.join(", ") || "(none)"}`);
+  let succeeded = false;
+  let output = "";
+
+  if (viaAgent) {
+    const convex0 = convexServerClient();
+    const { user } = await convex0.query(api.gateway.brokerContext, {
+      secret: convexServerSecret(),
+      kindeUserId,
+    });
+    if (!user) throw new Error(`No such user: ${kindeUserId}.`);
+
+    const captured = await captureOutput(() =>
+      runAgent({
+        kindeUserId,
+        userId: user._id,
+        goal: "Read the open issues and post a short useful comment on the most actionable one.",
+        correlationId,
+      }),
+    );
+    output = captured.output;
+
+    console.log(`status         ${captured.result.status}`);
+    console.log(`runId          ${captured.result.runId}`);
+    for (const call of captured.result.toolCalls) {
+      console.log(`tool           ${call.actionId} -> ${call.outcome}`);
+    }
+    succeeded = captured.result.status === "succeeded";
+
+    // The agent's own output is part of what must be clean: if a token ever
+    // reached the model, it could surface in the transcript.
+    output += `\n${captured.result.finalMessage}\n${JSON.stringify(captured.result.toolCalls)}`;
   } else {
-    console.log(`reason         ${outcome.reason}`);
+    const captured = await captureOutput(() =>
+      brokerAction({
+        actionId: "read_issues",
+        input: { state: "open", limit: 3 },
+        kindeUserId,
+        correlationId,
+      }),
+    );
+    output = captured.output;
+    const outcome = captured.result;
+
+    console.log(`outcome        ${outcome.status}`);
+    if (outcome.status === "ok") {
+      console.log(`summary        ${outcome.summary}`);
+      console.log(`scopes         ${outcome.scopes.join(", ") || "(none)"}`);
+    } else {
+      console.log(`reason         ${outcome.reason}`);
+    }
+    succeeded = outcome.status === "ok";
   }
 
-  if (outcome.status !== "ok") {
+  if (!succeeded) {
     console.log(
-      "\nThe action did not succeed, so there is nothing to prove about it.",
+      "\nThe work did not succeed, so there is nothing to prove about it.",
     );
     process.exitCode = 1;
     return;
