@@ -61,3 +61,8 @@ AGENTS.md
 
 # queued audit rows awaiting replay into the store
 .audit-fallback.jsonl
+
+# spooled audit rows, under any of the names this project has used
+.audit-spool.jsonl
+# connected app session handles
+*.session.json
