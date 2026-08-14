@@ -51,3 +51,6 @@ yarn-error.log*
 .claude/
 tsconfig.tsbuildinfo
 AGENTS.md
+
+# local connected app session scratch — never commit
+.kinde-session.json
