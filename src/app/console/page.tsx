@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { ConnectionPanel } from "@/components/ConnectionPanel";
+import { Limitations } from "@/components/Limitations";
 import { Metrics } from "@/components/Metrics";
 import { Records } from "@/components/Records";
 import { TaskRunner } from "@/components/TaskRunner";
@@ -71,7 +72,7 @@ export default async function ConsolePage({
             className={
               connectedApp ? "badge badge-ok" : "badge badge-warn"
             }
-            title="Set by the deployment environment. The interface cannot change it."
+            title="The deployment sets this value. This interface cannot change it."
           >
             STORAGE_MODE: {mode}
           </span>
@@ -81,39 +82,39 @@ export default async function ConsolePage({
 
       {connectError ? (
         <div className="notice notice-danger">
-          Could not connect GitHub: {String(connectError)}
+          GitHub did not connect: {String(connectError)}
         </div>
       ) : null}
       {justConnected ? (
         <div className="notice notice-ok">
-          GitHub connected. Kinde holds the authorization; this app stored no
+          GitHub is connected. Kinde keeps the authorization. This app kept no
           token.
         </div>
       ) : null}
 
       <div className="panel">
-        <h2>What this deployment does</h2>
+        <h2>How this deployment gets a token</h2>
         <p className="small" style={{ margin: 0 }}>
           {connectedApp ? (
             <>
-              The app holds <strong>no</strong> GitHub token. For each action
-              the broker asks Kinde for one, uses it for that single call, and
-              drops it. Revoking the connection stops the next fetch, so the
-              agent is cut off within one action.
+              This app keeps <strong>no</strong> GitHub token. For each
+              action the broker asks Kinde for a token, uses it one time, then
+              discards it. If you revoke the connection, Kinde supplies no more
+              tokens. The next action stops.
             </>
           ) : (
             <>
-              The app holds its <strong>own long-lived</strong> GitHub token and
-              calls GitHub directly with it. Kinde is never consulted, so
-              revoking the connection does not stop the agent. This is the hole,
-              reproduced deliberately.
+              This app keeps its <strong>own long-life</strong> GitHub token
+              and speaks to GitHub directly. It does not ask Kinde. If you
+              revoke the connection, the agent continues to act. This mode
+              shows the problem on purpose.
             </>
           )}
         </p>
       </div>
 
       <div className="panel">
-        <h2>Live numbers</h2>
+        <h2>Counts</h2>
         <Metrics
           userId={operator.userId}
           tokensStored={tokensStored}
@@ -133,9 +134,11 @@ export default async function ConsolePage({
       <TaskRunner connected={status === "linked"} connectedApp={connectedApp} />
 
       <div className="panel">
-        <h2>Records — what actually happened</h2>
+        <h2>Records</h2>
         <Records userId={operator.userId} />
       </div>
+
+      <Limitations connectedApp={connectedApp} />
     </main>
   );
 }
