@@ -6,6 +6,7 @@ import { convexServerClient, convexServerSecret } from "@/lib/convex-server";
 import { gitHubTargetEnv, storageMode } from "@/lib/env";
 import { createGitHubClient } from "@/lib/github/client";
 import { CONNECTED_APP, STORED_KEY } from "@/lib/storage-mode";
+import { writeToFallbackSink } from "./audit-sink";
 import {
   acquireConnectedAppToken,
   acquireStoredKeyToken,
@@ -92,6 +93,14 @@ export async function brokerAction(
   const convex = convexServerClient();
   const secret = convexServerSecret();
 
+  /**
+   * Record one decision.
+   *
+   * Returns whether the row reached the store. A caller that could not record
+   * an action must not perform it — the broker fails closed on an unrecordable
+   * decision rather than acting unaudited. The row is written to the fallback
+   * sink first so the attempt is recoverable either way.
+   */
   const audit = async (
     event:
       | "token.brokered"
@@ -101,18 +110,45 @@ export async function brokerAction(
     outcome: "allowed" | "refused" | "failed",
     detail?: string,
     userId?: Id<"users">,
-  ) => {
-    await convex.mutation(api.gateway.recordAudit, {
-      secret,
-      correlationId: request.correlationId,
-      userId,
-      runId: request.runId,
-      event,
-      outcome,
-      actionId: request.actionId,
-      storageMode: mode,
-      detail: detail ? redactCredentials(detail).slice(0, 500) : undefined,
-    });
+  ): Promise<boolean> => {
+    const safeDetail = detail
+      ? redactCredentials(detail).slice(0, 500)
+      : undefined;
+
+    try {
+      await convex.mutation(api.gateway.recordAudit, {
+        secret,
+        correlationId: request.correlationId,
+        userId,
+        runId: request.runId,
+        event,
+        outcome,
+        actionId: request.actionId,
+        storageMode: mode,
+        detail: safeDetail,
+      });
+      return true;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      const sink = writeToFallbackSink(
+        {
+          correlationId: request.correlationId,
+          event,
+          outcome,
+          actionId: request.actionId,
+          storageMode: mode,
+          detail: safeDetail,
+          userId,
+          runId: request.runId,
+        },
+        reason,
+      );
+      // Fingerprint-level reporting only. No credential is in scope here.
+      console.error(
+        `[broker] audit write failed (${reason}); row ${sink.written ? `queued in ${sink.path}` : "COULD NOT BE QUEUED"}`,
+      );
+      return false;
+    }
   };
 
   // 1. The action must be in the registry. Anything else is refused before
@@ -154,16 +190,35 @@ export async function brokerAction(
   }
 
   // 3. Get a credential. This is the only place either mode obtains one.
+  //
+  //    Every failure mode ends in a refusal that is recorded: a bad session, a
+  //    revoked connection, a Kinde outage, a timeout, an unexpected throw.
+  //    None of them fall through to a direct GitHub call.
   let credential: CredentialResult;
-  if (mode === STORED_KEY) {
-    // Note what is absent: no Kinde call, no connection status check. The app
-    // holds this token, so revocation at Kinde cannot reach it.
-    credential = acquireStoredKeyToken();
-  } else {
-    credential = await acquireConnectedAppToken({
-      kindeSessionId: connection?.kindeSessionId,
-      status: connection?.status ?? "unlinked",
-    });
+  try {
+    if (mode === STORED_KEY) {
+      // Note what is absent: no Kinde call, no connection status check. The
+      // app holds this token, so revocation at Kinde cannot reach it.
+      credential = acquireStoredKeyToken();
+    } else {
+      credential = await acquireConnectedAppToken({
+        kindeSessionId: connection?.kindeSessionId,
+        status: connection?.status ?? "unlinked",
+      });
+    }
+  } catch (error) {
+    // Nothing may escape this step unaudited.
+    const reason = redactCredentials(
+      error instanceof Error ? error.message : String(error),
+    );
+    await audit("token.refused", "refused", reason, user._id);
+    return {
+      status: "refused",
+      actionId: action.id,
+      storageMode: mode,
+      reason,
+      refusal: "credential",
+    };
   }
 
   if (!credential.ok) {
@@ -178,7 +233,9 @@ export async function brokerAction(
     };
   }
 
-  await audit(
+  // The action is not performed unless the decision to perform it was
+  // recorded. An unrecordable action is refused, not silently allowed.
+  const recorded = await audit(
     "token.brokered",
     "allowed",
     mode === CONNECTED_APP
@@ -186,6 +243,18 @@ export async function brokerAction(
       : "Used the token the app holds. Kinde was not consulted.",
     user._id,
   );
+
+  if (!recorded) {
+    const reason =
+      "The audit trail is unavailable. Refusing to act rather than act without a record.";
+    return {
+      status: "refused",
+      actionId: action.id,
+      storageMode: mode,
+      reason,
+      refusal: "credential",
+    };
+  }
 
   // 4. Act. The handler is given a bound caller, never the token.
   const target = gitHubTargetEnv();
