@@ -1,13 +1,15 @@
 /**
  * A live probe of Kinde Connected Apps.
  *
- * This script measures behaviour rather than assuming it. It answers three
+ * This script measures behaviour rather than assuming it. It answers four
  * questions the demo depends on:
  *
  *   1. How long does a brokered GitHub token live?
  *   2. Does Kinde hold the refresh token, or does this app ever see one?
  *   3. When a connection is revoked, does the NEXT token fetch fail, and how
  *      fast?
+ *   4. Does a token that was already handed out keep working at GitHub after
+ *      the connection is revoked?
  *
  * It never prints an access token. Tokens are described by shape and by a
  * truncated fingerprint, which is enough to compare two fetches.
@@ -19,6 +21,7 @@
  *   npm run probe -- sessions <kindeUserId>
  *   npm run probe -- revoke-session
  *   npm run probe -- revoke-user-sessions <kindeUserId>
+ *   npm run probe -- held-token-after-revoke [minutes]
  */
 
 import { config as loadEnv } from "dotenv";
@@ -61,6 +64,13 @@ function loadSession(): SavedSession {
 
 function heading(text: string): void {
   console.log(`\n${text}\n${"-".repeat(text.length)}`);
+}
+
+function formatElapsed(ms: number): string {
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  const minutes = Math.floor(ms / 60_000);
+  const seconds = Math.round((ms % 60_000) / 1000);
+  return `${minutes}m${String(seconds).padStart(2, "0")}s`;
 }
 
 /* ------------------------------------------------------------------ link -- */
@@ -312,7 +322,7 @@ async function revokeUserSessions(kindeUserId: string): Promise<void> {
  * This is the one place the probe holds a token across a step. It is a
  * deliberate experiment in a throwaway script, never the app's behaviour.
  */
-async function heldTokenAfterRevoke(): Promise<void> {
+async function heldTokenAfterRevoke(watchMinutes = 1): Promise<void> {
   const session = loadSession();
 
   heading("Step 1 — broker a token and hold it");
@@ -353,16 +363,40 @@ async function heldTokenAfterRevoke(): Promise<void> {
       : `REFUSED HTTP ${after.status}: ${after.reason}`,
   );
 
-  heading("Step 5 — does the ALREADY-HELD token still work at GitHub?");
+  heading(
+    `Step 5 — does the ALREADY-HELD token still work at GitHub? (watching ${watchMinutes}m)`,
+  );
   const startedAt = Date.now();
-  for (let i = 0; i < 6; i++) {
+  const watchMs = watchMinutes * 60_000;
+  // Poll often at first to catch a fast rejection, then stretch out so a long
+  // watch does not hammer the API.
+  const intervalMs = watchMinutes <= 1 ? 5_000 : 60_000;
+  let rejectedAt: number | null = null;
+
+  for (;;) {
+    const elapsed = Date.now() - startedAt;
     const status = await callGitHub();
     const alive = status === 200;
     console.log(
-      `  +${String(Date.now() - startedAt).padStart(6)}ms  GET /user HTTP ${status}  ${alive ? "STILL VALID" : "REJECTED"}`,
+      `  +${formatElapsed(elapsed)}  GET /user HTTP ${status}  ${alive ? "STILL VALID" : "REJECTED"}`,
     );
-    if (!alive) break;
-    await new Promise((r) => setTimeout(r, 5_000));
+    if (!alive) {
+      rejectedAt = elapsed;
+      break;
+    }
+    if (elapsed >= watchMs) break;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+
+  heading("Measured");
+  if (rejectedAt === null) {
+    console.log(
+      `The held token was STILL VALID at GitHub ${formatElapsed(Date.now() - startedAt)} after Kinde revoked the session.`,
+    );
+  } else {
+    console.log(
+      `GitHub rejected the held token ${formatElapsed(rejectedAt)} after revocation.`,
+    );
   }
 
   heading("Reading");
@@ -390,7 +424,7 @@ async function main(): Promise<void> {
     case "revoke-session":
       return await revokeSession();
     case "held-token-after-revoke":
-      return await heldTokenAfterRevoke();
+      return await heldTokenAfterRevoke(arg ? Number(arg) : 1);
     case "revoke-user-sessions":
       if (!arg) {
         throw new Error(
@@ -415,7 +449,7 @@ async function main(): Promise<void> {
           "  github                            call GitHub with a brokered token",
           "  sessions <kindeUserId>            list the user's Kinde sessions",
           "  revoke-session                    revoke the connected app session, then measure",
-          "  held-token-after-revoke           does an already-issued token survive revocation?",
+          "  held-token-after-revoke [minutes]  does an already-issued token survive revocation?",
           "  revoke-user-sessions <kindeUserId>  delete all user sessions, then measure",
         ].join("\n"),
       );
