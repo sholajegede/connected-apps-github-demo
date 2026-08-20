@@ -149,9 +149,9 @@ Create an OAuth app at `github.com/settings/developers`. Put Kinde's callback
 URL in it. Copy the client id and the client secret into the Kinde connected
 app.
 
-Turn on **Expire user access tokens**. GitHub then issues 8-hour tokens and a
-refresh token. Without this setting the token never expires, and the demo makes
-a weaker claim.
+Turn on **Token expiration**, under Optional features on the OAuth app. GitHub
+then issues 8-hour tokens and a refresh token. Without this setting the token
+never expires, and the demo makes a weaker claim.
 
 ### 3. Convex
 
